@@ -1,9 +1,8 @@
 from multithreadcopier import MultiThreadCopier
-import os.path
+import os
 import argparse
 import shutil
 import logging
-import glob
 
 
 file_log = logging.FileHandler('logging/error.log')
@@ -15,42 +14,28 @@ logging.basicConfig(handlers=(file_log, console_out),
                     level=logging.ERROR)
 
 parser = argparse.ArgumentParser(description='Copying and moving files')
-parser.add_argument(dest='dst', metavar='path', nargs='*')
-parser.add_argument('-c', dest='copy', help='pattern for copy files')
-parser.add_argument('-m', dest='move', help='pattern for move file or directory')
-parser.add_argument('-threads', dest='thread', default=1, help='value threads')
+parser.add_argument('--operation', dest='operation', help='pattern for choice operation')
+parser.add_argument('--from', dest='_from', help='Path to <from>')
+parser.add_argument('--to', dest='_to', help='Path to <to>')
+parser.add_argument('--threads', dest='thread', default=1, help='value threads')
 
 args = parser.parse_args()
 
 def main():
     with MultiThreadCopier(threads=int(args.thread)) as pool:
-        if args.copy:
-            if os.path.exists:
-                if os.path.isfile(os.path.basename(args.copy)):
-                    pool.copy(args.copy, args.dst[0])
-                elif os.path.isdir(args.copy):
-                    try:
-                        shutil.copytree(args.copy, args.dst[0], copy_function=pool.copy)
-                    except shutil.Error as e:
-                        for src, dst, msg in e.args[0]:
-                            logging.error(dst, src, msg)
-                else:
-                    files = glob.iglob(os.path.join(os.path.dirname(args.copy), 
-                        os.path.basename(args.copy)))
-                    for file in files:
-                        if os.path.isfile(file):
-                            pool.copy(file, args.dst[0])
+        if args.operation == 'copy':
+            if os.path.isdir(args._from):
+                pool.copy_tree(args._from, args._to)
             else:
-                logging.info("Object does not exist")
-        elif args.move:
-            if os.path.isfile(args.move) or os.path.isdir(args.move):   
-                shutil.move(args.move, args.dst[0], copy_function=pool.copy)
+                pool.copy_file_by_extension(args._from, args._to)
+        elif args.operation == 'move':
+            if os.path.isdir(args._from):
+                shutil.move(args._from, args._to, copy_function=pool.copy)
             else:
-                files = glob.iglob(os.path.join(os.path.dirname(args.move), 
-                        os.path.basename(args.move)))
-                for file in files:
-                    if os.path.isfile(file):
-                        shutil.move(file, args.dst[0], copy_function=pool.copy)
+                pool.copy_file_by_extension(args._from, args._to, copy_function=pool.copy)
+        else:
+            logging.error(f'There is no such operation {args.operation}')
+
 
 if __name__ == '__main__':
     main()
